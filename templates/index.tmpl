@@ -1,8 +1,12 @@
 <html>
-  <h1>
-    {{ .title }}
-  </h1>
-  {{ range .comments }}
-    <p>{{ .Message }} {{ .CreatedAt }}</p>
-  {{ end }}
+    <head>
+        <title>egegunes.rocks</title>
+    </head>
+    <body>
+        <div>
+        {{ range .comments }}
+            <p>{{ .Message }} {{ .CreatedAt }}</p>
+        {{ end }}
+        </div>
+    </body>
 </html>
