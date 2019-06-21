@@ -1,19 +1,49 @@
 <html>
     <head>
         <title>egegunes.rocks</title>
+        <style>
+            #container {
+                padding: 20px;
+                display: flex;
+                justify-content: center;
+            }
+            #comments {
+                width: 40%;
+            }
+            #comment-form input {
+                width: 50%;
+                margin: 5px 0;
+            }
+            #comment-form textarea {
+                width: 100%;
+                margin: 5px 0;
+            }
+            #comment-form button {
+                width: 25%;
+                float: right;
+            }
+        </style>
     </head>
     <body>
-        <div>
-        {{ range .comments }}
-            <p>{{.Name }} {{ .Message }} {{ .CreatedAt }}</p>
-        {{ end }}
+        <h1>Tell me why I rock (or suck)</h1>
+        <div id="container">
+            <div id="comments">
+            {{ range .comments }}
+                <div>
+                <p><i>"{{ .Message }}"</i></p>
+                <p><strong>{{ .Name }}</strong> {{ .CreatedAt }}</p>
+                </div>
+            {{ end }}
+            </div>
+            <div>
+                <form id="comment-form" method="POST">
+                    <input type="text" name="name" value="Anonymous" />
+                    <textarea placeholder="Message" name="message"></textarea>
+                    <button type="submit">Submit</button>
+                </form>
+            </div>
         </div>
-        <div>
-            <form method="POST">
-                <input type="text" name="name" value="Anonymous" />
-                <textarea placeholder="Message" name="message"></textarea>
-                <button type="submit">Submit</button>
-            </form>
-        </div>
+        <a href="#">Why?</a>
+        <a href="#">Source</a>
     </body>
 </html>
