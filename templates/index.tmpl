@@ -5,8 +5,15 @@
     <body>
         <div>
         {{ range .comments }}
-            <p>{{ .Message }} {{ .CreatedAt }}</p>
+            <p>{{.Name }} {{ .Message }} {{ .CreatedAt }}</p>
         {{ end }}
+        </div>
+        <div>
+            <form method="POST">
+                <input type="text" name="name" value="Anonymous" />
+                <textarea placeholder="Message" name="message"></textarea>
+                <button type="submit">Submit</button>
+            </form>
         </div>
     </body>
 </html>
