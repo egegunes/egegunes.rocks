@@ -18,6 +18,14 @@ type comment struct {
 	CreatedAt string
 }
 
+func (c comment) DisplayDate() string {
+	createdAt, err := time.Parse(time.RFC3339, c.CreatedAt)
+	if err != nil {
+		return c.CreatedAt
+	}
+	return createdAt.Format("2006-01-02 15:04")
+}
+
 func createTable(db *dynamodb.DynamoDB, tableName string) error {
 	input := &dynamodb.CreateTableInput{
 		BillingMode: aws.String("PAY_PER_REQUEST"),
