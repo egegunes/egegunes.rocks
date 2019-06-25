@@ -1,15 +1,22 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 type comment struct {
@@ -17,6 +24,8 @@ type comment struct {
 	Message   string
 	CreatedAt string
 }
+
+var ginLambda *ginadapter.GinLambda
 
 func (c comment) DisplayDate() string {
 	createdAt, err := time.Parse(time.RFC3339, c.CreatedAt)
@@ -104,13 +113,19 @@ func putComment(db *dynamodb.DynamoDB, tableName string, c comment) error {
 	return err
 }
 
-func main() {
-	db := dynamodb.New(session.New(), &aws.Config{
-		Region:   aws.String("eu-central-1"),
-		Endpoint: aws.String("http://localhost:8000"),
-	})
+func init() {
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("No .env file found")
+	}
+	awsRegion := os.Getenv("AWS_REGION")
+	accessKeyID := os.Getenv("AWS_ACCESS_KEY_ID")
+	accessKeySecret := os.Getenv("AWS_ACCESS_KEY_SECRET")
+	tableName := os.Getenv("AWS_DYNAMODB_TABLENAME")
 
-	tableName := "Comments"
+	db := dynamodb.New(session.New(), &aws.Config{
+		Region:      aws.String(awsRegion),
+		Credentials: credentials.NewStaticCredentials(accessKeyID, accessKeySecret, ""),
+	})
 
 	if err := tableExists(db, tableName); err != nil {
 		log.Println("table does not exist, creating new")
@@ -142,5 +157,14 @@ func main() {
 		}
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{"comments": comments})
 	})
-	router.Run(":8080")
+
+	ginLambda = ginadapter.New(router)
+}
+
+func Handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	return ginLambda.ProxyWithContext(ctx, req)
+}
+
+func main() {
+	lambda.Start(Handler)
 }
