@@ -4,19 +4,16 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 )
 
 type comment struct {
@@ -114,17 +111,10 @@ func putComment(db *dynamodb.DynamoDB, tableName string, c comment) error {
 }
 
 func init() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("No .env file found")
-	}
-	awsRegion := os.Getenv("AWS_REGION")
-	accessKeyID := os.Getenv("AWS_ACCESS_KEY_ID")
-	accessKeySecret := os.Getenv("AWS_ACCESS_KEY_SECRET")
-	tableName := os.Getenv("AWS_DYNAMODB_TABLENAME")
+	tableName := "comments"
 
 	db := dynamodb.New(session.New(), &aws.Config{
-		Region:      aws.String(awsRegion),
-		Credentials: credentials.NewStaticCredentials(accessKeyID, accessKeySecret, ""),
+		Region: aws.String("eu-central-1"),
 	})
 
 	if err := tableExists(db, tableName); err != nil {

@@ -3,7 +3,7 @@ all: build package deploy clean
 build:
 	go build -o egegunesrocks
 package:
-	zip -r egegunesrocks.zip egegunesrocks .env templates/
+	zip -r egegunesrocks.zip egegunesrocks templates/
 deploy:
 	aws cloudformation package --template-file sam.yaml --output-template-file output-sam.yaml --s3-bucket egegunesrocks
 	aws cloudformation deploy --template-file output-sam.yaml --stack-name egegunesrocks --capabilities CAPABILITY_IAM
