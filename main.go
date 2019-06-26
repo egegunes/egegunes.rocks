@@ -29,7 +29,7 @@ func (c comment) DisplayDate() string {
 	if err != nil {
 		return c.CreatedAt
 	}
-	return createdAt.Format("2006-01-02 15:04")
+	return createdAt.Format("2006-01-02")
 }
 
 func createTable(db *dynamodb.DynamoDB, tableName string) error {
