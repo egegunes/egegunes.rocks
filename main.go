@@ -1,19 +1,13 @@
 package main
 
 import (
-	"context"
+	"database/sql"
 	"log"
 	"net/http"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/gin-gonic/gin"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type comment struct {
@@ -21,8 +15,6 @@ type comment struct {
 	Message   string
 	CreatedAt string
 }
-
-var ginLambda *ginadapter.GinLambda
 
 func (c comment) DisplayDate() string {
 	createdAt, err := time.Parse(time.RFC3339, c.CreatedAt)
@@ -32,103 +24,57 @@ func (c comment) DisplayDate() string {
 	return createdAt.Format("2006-01-02")
 }
 
-func createTable(db *dynamodb.DynamoDB, tableName string) error {
-	input := &dynamodb.CreateTableInput{
-		BillingMode: aws.String("PAY_PER_REQUEST"),
-		AttributeDefinitions: []*dynamodb.AttributeDefinition{
-			{
-				AttributeName: aws.String("Name"),
-				AttributeType: aws.String("S"),
-			},
-			{
-				AttributeName: aws.String("CreatedAt"),
-				AttributeType: aws.String("S"),
-			},
-		},
-		KeySchema: []*dynamodb.KeySchemaElement{
-			{
-				AttributeName: aws.String("Name"),
-				KeyType:       aws.String("HASH"),
-			},
-			{
-				AttributeName: aws.String("CreatedAt"),
-				KeyType:       aws.String("RANGE"),
-			},
-		},
-		TableName: aws.String(tableName),
-	}
-	_, err := db.CreateTable(input)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func tableExists(db *dynamodb.DynamoDB, tableName string) error {
-	input := &dynamodb.DescribeTableInput{
-		TableName: aws.String(tableName),
-	}
-
-	_, err := db.DescribeTable(input)
-
-	return err
-}
-
-func getComments(db *dynamodb.DynamoDB, tableName string) ([]comment, error) {
+func getComments(db *sql.DB) ([]comment, error) {
 	var comments []comment
 
-	input := &dynamodb.ScanInput{
-		ConsistentRead: aws.Bool(true),
-		TableName:      aws.String(tableName),
-	}
-	result, err := db.Scan(input)
-
+	rows, err := db.Query("SELECT name, message, created_at FROM comments ORDER BY id DESC")
 	if err != nil {
 		return comments, err
 	}
+	defer rows.Close()
 
-	dynamodbattribute.UnmarshalListOfMaps(result.Items, &comments)
+	for rows.Next() {
+		var c comment
+		err = rows.Scan(&c.Name, &c.Message, &c.CreatedAt)
+		if err != nil {
+			return comments, err
+		}
+		comments = append(comments, c)
+	}
 
 	return comments, err
 }
 
-func putComment(db *dynamodb.DynamoDB, tableName string, c comment) error {
-	av, err := dynamodbattribute.MarshalMap(c)
-	if err != nil {
-		return err
-	}
-
-	input := &dynamodb.PutItemInput{
-		Item:      av,
-		TableName: aws.String(tableName),
-	}
-
-	_, err = db.PutItem(input)
+func putComment(db *sql.DB, c comment) error {
+	_, err := db.Exec("INSERT INTO comments(name, message, created_at) VALUES(?, ?, ?)", c.Name, c.Message, c.CreatedAt)
 
 	return err
 }
 
-func init() {
-	tableName := "comments"
+func main() {
+	db, err := sql.Open("sqlite3", "./db.sqlite3")
+	if err != nil {
+		log.Fatalf("can't open db: %v", err)
+	}
+	defer db.Close()
 
-	db := dynamodb.New(session.New(), &aws.Config{
-		Region: aws.String("eu-central-1"),
-	})
-
-	if err := tableExists(db, tableName); err != nil {
-		log.Println("table does not exist, creating new")
-		err := createTable(db, tableName)
-		if err != nil {
-			log.Printf("can't create table: %s", err)
-		}
+	_, err = db.Exec(`
+	CREATE TABLE IF NOT EXISTS
+	    comments (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT,
+		message TEXT,
+		created_at TEXT
+	    );
+	`)
+	if err != nil {
+		log.Fatalf("can't create table: %v", err)
 	}
 
 	router := gin.Default()
 	router.LoadHTMLFiles("templates/index.tmpl")
 	router.GET("/", func(c *gin.Context) {
-		comments, err := getComments(db, tableName)
+		comments, err := getComments(db)
 		if err != nil {
 			log.Printf("can't get comments: %s", err)
 		}
@@ -137,24 +83,16 @@ func init() {
 	router.POST("/", func(c *gin.Context) {
 		name := c.PostForm("name")
 		message := c.PostForm("message")
-		err := putComment(db, tableName, comment{name, message, time.Now().Format(time.RFC3339)})
+		err := putComment(db, comment{name, message, time.Now().Format(time.RFC3339)})
 		if err != nil {
 			log.Printf("can't put comment: %s", err)
 		}
-		comments, err := getComments(db, tableName)
+		comments, err := getComments(db)
 		if err != nil {
 			log.Printf("can't get comments: %s", err)
 		}
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{"comments": comments})
 	})
 
-	ginLambda = ginadapter.New(router)
-}
-
-func Handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	return ginLambda.ProxyWithContext(ctx, req)
-}
-
-func main() {
-	lambda.Start(Handler)
+	router.Run()
 }

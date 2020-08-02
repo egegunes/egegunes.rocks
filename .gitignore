@@ -1,4 +1,7 @@
 egegunesrocks
+egegunes.rocks
 egegunesrocks.zip
 output-sam.yaml
 .env
+db.sqlite3
+insert.py
