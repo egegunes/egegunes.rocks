@@ -72,7 +72,7 @@ func main() {
 	}
 
 	router := gin.Default()
-	router.LoadHTMLFiles("templates/index.tmpl")
+	router.LoadHTMLFiles("index.tmpl")
 	router.GET("/", func(c *gin.Context) {
 		comments, err := getComments(db)
 		if err != nil {
