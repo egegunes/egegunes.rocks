@@ -94,5 +94,5 @@ func main() {
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{"comments": comments})
 	})
 
-	router.Run()
+	router.Run(":8000")
 }
